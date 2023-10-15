@@ -9,7 +9,7 @@ public class TweakMe {
     private final TweakMeClassLoader classLoader;
 
     public static void main(String[] args) {
-        new TweakMe().launch(new String[]{"--launchTarget", "com.someone.Test", "--tweaker", "yay.yoy.YaTweaker"});
+        new TweakMe().launch(args);
     }
 
     private TweakMe() {
@@ -30,23 +30,34 @@ public class TweakMe {
                 tweakers.add(args[Arrays.asList(args).indexOf(arg) + 1]);
         }
 
-        System.out.println("Launch target: " + launchTarget);
+        if(launchTarget.trim().isEmpty()) {
+            System.err.println("No LaunchTarget provided, exiting.");
+            return;
+        }
+
+        System.out.println("TweakMe LaunchTarget: " + launchTarget);
         System.out.println("Tweakers: " + tweakers);
 
         for (String tweaker : tweakers) {
+            System.out.println("Running tweaker " + tweaker + "...");
             classLoader.addExclusions(tweaker);
             try {
                 ITweaker iTweaker = (ITweaker) Class.forName(tweaker).getDeclaredConstructor().newInstance();
                 iTweaker.options(launchTarget, args);
                 iTweaker.inject(classLoader);
                 transformers.addAll(iTweaker.transformers());
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                System.err.println("Tweaker " + tweaker + " was not successfully run. " + e);
+            }
         }
 
         classLoader.addTransformers(transformers.toArray(new ITransformer[0]));
 
+        System.out.println("Starting " + launchTarget);
         try {
             Class.forName(launchTarget, false, classLoader).getDeclaredMethod("main", String[].class).invoke(null, (Object) args);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            System.err.println("LaunchTarget was not successfully run. " + e);
+        }
     }
 }
